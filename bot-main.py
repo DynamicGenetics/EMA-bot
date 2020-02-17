@@ -4,6 +4,8 @@ import pandas as pd
 import datetime
 import logging
 
+#Credentials file 
+from credentials import bot_creds
 
 #Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -13,7 +15,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 #Initiate bot object
-bot = telegram.Bot(token='1071227516:AAGrMoQk-dZ9rwj0H_PqYX1FeC3TDqhr76s')
+bot = telegram.Bot(token=bot_creds)
 
 ###############
 ## FUNCTIONS ##

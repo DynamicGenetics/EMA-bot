@@ -1,0 +1,10 @@
+.txt
+.DS_Store
+__pycache__
+.log
+lib
+lib64
+.config
+secret.py
+.secret.py
+credentials.py
