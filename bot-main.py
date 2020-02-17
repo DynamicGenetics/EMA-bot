@@ -1,21 +1,31 @@
 import telegram
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
-import pandas as pd
 import datetime
-import logging
+import logging, csv, io, os, sys
 
 #Credentials file 
 from credentials import bot_creds
 
-#Enable logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                     level=logging.INFO)
-
-#This is used in the conversationHandler
-logger = logging.getLogger(__name__)
+############
+## SET-UP ##
+############
 
 #Initiate bot object
 bot = telegram.Bot(token=bot_creds)
+
+#Setting up logging
+#Generate log name with path based on cwd of this Python script
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
+                    datefmt='%H:%M:%S',
+                    level=logging.INFO)
+
+#Instatiate logger
+logger = logging.getLogger(__name__)
+
+log_fname = os.path.join(os.path.dirname(os.path.realpath(sys.argv[0])), 'ema_log.csv')
+fh = logging.FileHandler(log_fname)
+fh.setLevel(logging.INFO)
+logger.addHandler(fh)
 
 ###############
 ## FUNCTIONS ##
@@ -42,6 +52,8 @@ def unknown(update, context):
 HAPPINESS, ENERGY, DONE = range(3)
 
 def ema_start(update, context):
+
+    #Custom keyboard layout
     kb = [['1','2', '3', '4', '5'], ['6', '7', '8', '9', '10']]
     kb_markup = telegram.ReplyKeyboardMarkup(kb, one_time_keyboard=True)
 
@@ -50,28 +62,28 @@ def ema_start(update, context):
         "How happy do you feel right now, where 1 = Very Unhappy and 10 = Very Happy?",
         reply_markup=kb_markup)
 
-    #Add the chat ID, the time stamp of the reply and the message text to the dataframe
-    #df.loc[len(df)] = [update.message.chat_id, update.message.date, update.message.text]
-
     return HAPPINESS
 
 def ema_happiness(update, context):
     user = update.message.from_user
-    logger.info("Happiness of %s: %s", user.username, update.message.text)
+    
+    #Logs:      username,      chat id,               datetime of original message, question, datetime of reply,  reply info
+    logger.info("%s, %s, %s, Happiness, %s, %s", user.username, update.message.chat_id, update.message.forward_date, update.message.date, update.message.text)
 
+    #Custom keyboard layout
     kb = [['1','2', '3', '4', '5'], ['6', '7', '8', '9', '10']]
     kb_markup = telegram.ReplyKeyboardMarkup(kb, one_time_keyboard=True)
 
     update.message.reply_text(
         "How energetic do you feel right now, where 1 = Very Lethargic and 10 = Very Energetic?",
         reply_markup=kb_markup)
-    #Add the chat ID, the time stamp of the reply and the message text to the dataframe
-    #df.loc[len(df)] = [update.message.chat_id, update.message.date, update.message.text]
+
     return ENERGY
 
 def ema_energy(update, context):
     user = update.message.from_user
-    logger.info("Energy of %s: %s", user.username, update.message.text)
+    #Logs:      username,      chat id,               datetime of original message, question, datetime of reply,  reply info
+    logger.info("%s, %s, %s, Energy, %s, %s", user.username, update.message.chat_id, update.message.forward_date, update.message.date, update.message.text)
     update.message.reply_text("Thank you! All done.")
 
     return ConversationHandler.END
@@ -82,7 +94,7 @@ def ema_energy(update, context):
 #######################
 
 def main():
-    updater = Updater(token='1071227516:AAGrMoQk-dZ9rwj0H_PqYX1FeC3TDqhr76s', use_context=True)
+    updater = Updater(token=bot_creds, use_context=True)
 
     dispatcher = updater.dispatcher
 
