@@ -8,3 +8,4 @@ lib64
 secret.py
 .secret.py
 credentials.py
+.csv
