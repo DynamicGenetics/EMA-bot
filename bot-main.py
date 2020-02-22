@@ -32,38 +32,30 @@ logger.addHandler(fh)
 ###############
 
 #Function that defines what the bot should do on receiving the \start message 
-def start(update, context):
-    bot.send_message(chat_id=update.message.chat_id,
-                     text="Welcome to the University of Bristol's Mood Music Study! " "Thanks so much for taking part. " "Please remember to enable push notifications from Telegram, and when that is done reply /ready.")
-
-def daily_message(context: telegram.ext.CallbackContext):
-     context.bot.send_message(chat_id=context.job.context, text='This is a sheduled message')
-
-def callback_daily(update: telegram.Update, context: telegram.ext.CallbackContext):
+def start(update, context ):
     context.bot.send_message(chat_id=update.message.chat_id,
-                             text="Setting up your daily surveys!")
-    t = datetime.time(14, 29, 00, 000000)
-    context.job_queue.run_daily(daily_message, t, context=update.message.chat_id)
-
-#Function that will run the EMA survey at the times we want every day. 
-# def daily_job(update, job_queue):
-#     """ Running on Mon, Tue, Wed, Thu, Fri, Sat, Sun = tuple(range(7)) """
-#     bot.send_message(chat_id=update.message.chat_id, text="Great, you\'re all set up! " "You will receive a message when it\'s time for your next survey. If you don\'t want to wait you can try it out now by replying /ema. " "Have a good day :)")
-#     t = datetime.time(20, 16, 00, 000000)
-#     job_queue.run_daily(ema_survey, t, days=tuple(range(7)), context=job.context)
+                     text="Welcome to the University of Bristol's Mood Music Study! \n Thanks so much for taking part. \n Please remember to enable push notifications from Telegram, and when that is done reply /ready.")
 
 #Function to manage unrecognised commands
 def unknowncommand(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command")
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn\'t understand that command")
 
 #Function to manage unrecognised commands
 def unknowntext(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I\'m not able to understand what you have said. Please see /help for an overview of my commands, or wait until your next survey. Thank you!")
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I\'m not able to understand what you have said. \n Please see /help for an overview of my commands, or wait until your next survey. \n Thank you!")
 
 #Function to manage unrecognised commands
 def helpme(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="Soon this will show you all my available commands!")
 
+def daily_message(context: telegram.ext.CallbackContext):
+     context.bot.send_message(chat_id=context.job.context, text='/ema')
+
+def callback_daily(update: telegram.Update, context: telegram.ext.CallbackContext):
+    context.bot.send_message(chat_id=update.message.chat_id,
+                             text="Setting up your daily surveys!")
+    t = datetime.time(20, 35, 00, 000000)
+    context.job_queue.run_daily(daily_message, t, context=update.message.chat_id)
 
 #Initialise the states for conversation handler - NameError saying they aren't defined otherwise 
 HAPPINESS, ENERGY, DONE = range(3)
@@ -74,9 +66,7 @@ def ema_start(update, context):
     kb = [['1','2', '3', '4', '5'], ['6', '7', '8', '9', '10']]
     kb_markup = telegram.ReplyKeyboardMarkup(kb, one_time_keyboard=True)
 
-    update.message.reply_text(
-        "Hi, it\'s time for another survey. "
-        "How happy do you feel right now, where 1 = Very Unhappy and 10 = Very Happy?",
+    context.bot.send_message(chat_id=update.effective_chat.id, text = "Hi, it\'s time for another survey. \n How happy do you feel right now, where 1 = Very Unhappy and 10 = Very Happy?",
         reply_markup=kb_markup)
 
     return HAPPINESS
@@ -105,7 +95,6 @@ def ema_energy(update, context):
 
     return ConversationHandler.END
 
-
 #######################
 ## MAIN METHOD STUFF ##
 #######################
@@ -115,11 +104,9 @@ def main():
 
     dispatcher = updater.dispatcher
 
-    job_queue = updater.job_queue
-
-    ##########################
-    ## CONVERSATION HANDLER ##
-    ##########################
+    ###########################
+    ## CONVERSATION HANDLERs ##
+    ###########################
 
     ema_handler = ConversationHandler(
         entry_points=[CommandHandler('ema', ema_start)],
@@ -133,9 +120,12 @@ def main():
         fallbacks = []
     )
 
-    ####################
-    ## OTHER HANDLERS ##
-    ####################
+    ######################
+    ## COMMAND HANDLERS ##
+    ######################
+
+    #Start Handler - responds to the \start message using the start function. 
+    dispatcher.add_handler(CommandHandler('start', start))
 
     #Conversation Handler
     dispatcher.add_handler(ema_handler)
@@ -143,11 +133,12 @@ def main():
     #Ready Handler which sets up the JoQueue
     dispatcher.add_handler(CommandHandler('ready', callback_daily, pass_job_queue=True))
 
-    #Start Handler - responds to the \start message using the start function. 
-    dispatcher.add_handler(CommandHandler('start', start))
-
     ##Help Command Handler - 
     dispatcher.add_handler(CommandHandler('help', helpme))
+
+    ######################
+    ## MESSAGE HANDLERS ##
+    ######################
 
     #Unknown Command Handler - 
     dispatcher.add_handler(MessageHandler(Filters.command, unknowncommand))
