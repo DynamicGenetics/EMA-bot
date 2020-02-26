@@ -1,4 +1,5 @@
 import telegram
+import emoji
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
 import datetime
 import logging, csv, io, os, sys
@@ -9,9 +10,6 @@ from credentials import bot_creds
 ############
 ## SET-UP ##
 ############
-
-#Initiate bot object
-bot = telegram.Bot(token=bot_creds)
 
 #Setting up logging
 #Generate log name with path based on cwd of this Python script
@@ -32,41 +30,35 @@ logger.addHandler(fh)
 ###############
 
 #Function that defines what the bot should do on receiving the \start message 
-def start(update, context ):
+def start(update: telegram.Update, context: telegram.ext.CallbackContext):
     context.bot.send_message(chat_id=update.message.chat_id,
-                     text="Welcome to the University of Bristol's Mood Music Study! \n Thanks so much for taking part. \n Please remember to enable push notifications from Telegram, and when that is done reply /ready.")
+                     text=emoji.emojize("Welcome to the University of Bristol's Mood Music Study! :musical_note: \nThanks so much for taking part. \nPlease remember to enable notifications from Telegram. \n\nYou will recieve a notification when it is time for you to answer a survey."))
+   
+    #context.job_queue.run_daily(ema_start, datetime.time(20, 35, 00, 000000), context=update.message.chat_id)
+    context.job_queue.run_repeating(ema_start, interval=120, first=10, context=update.message.chat_id)
+
+#Function for the /help command
+def helpme(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Soon this will show you all my available commands!")
 
 #Function to manage unrecognised commands
 def unknowncommand(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn\'t understand that command")
 
-#Function to manage unrecognised commands
+#Function to manage text input
 def unknowntext(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I\'m not able to understand what you have said. \n Please see /help for an overview of my commands, or wait until your next survey. \n Thank you!")
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I\'m only able to understand your numeric survey answers. \nPlease email nina.dicara@bristol.ac.uk if you need anything, or wait until your next survey. \nThank you!")
 
-#Function to manage unrecognised commands
-def helpme(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Soon this will show you all my available commands!")
+#Initialise the states for conversation handler.
+HAPPINESS, ENERGY = range(2)
 
-def daily_message(context: telegram.ext.CallbackContext):
-     context.bot.send_message(chat_id=context.job.context, text='/ema')
-
-def callback_daily(update: telegram.Update, context: telegram.ext.CallbackContext):
-    context.bot.send_message(chat_id=update.message.chat_id,
-                             text="Setting up your daily surveys!")
-    t = datetime.time(20, 35, 00, 000000)
-    context.job_queue.run_daily(daily_message, t, context=update.message.chat_id)
-
-#Initialise the states for conversation handler - NameError saying they aren't defined otherwise 
-HAPPINESS, ENERGY, DONE = range(3)
-
-def ema_start(update, context):
+def ema_start(context: telegram.ext.CallbackContext):
 
     #Custom keyboard layout
     kb = [['1','2', '3', '4', '5'], ['6', '7', '8', '9', '10']]
     kb_markup = telegram.ReplyKeyboardMarkup(kb, one_time_keyboard=True)
 
-    context.bot.send_message(chat_id=update.effective_chat.id, text = "Hi, it\'s time for another survey. \n How happy do you feel right now, where 1 = Very Unhappy and 10 = Very Happy?",
+    context.bot.send_message(chat_id=context.job.context, text = "Hi, it\'s time for another survey. \nHow happy do you feel right now, where 1 = Very Unhappy and 10 = Very Happy?",
         reply_markup=kb_markup)
 
     return HAPPINESS
@@ -82,7 +74,7 @@ def ema_happiness(update, context):
     kb_markup = telegram.ReplyKeyboardMarkup(kb, one_time_keyboard=True)
 
     update.message.reply_text(
-        "How energetic do you feel right now, where 1 = Very Lethargic and 10 = Very Energetic?",
+        "How energetic do you feel right now, where 1 = Very Tired and 10 = Very Energetic?",
         reply_markup=kb_markup)
 
     return ENERGY
@@ -100,40 +92,36 @@ def ema_energy(update, context):
 #######################
 
 def main():
-    updater = Updater(token=bot_creds, use_context=True)
 
+    #Initialise the updater and dispatcher for main method. 
+    updater = Updater(token=bot_creds, use_context=True)
     dispatcher = updater.dispatcher
 
     ###########################
-    ## CONVERSATION HANDLERs ##
+    ## CONVERSATION HANDLERS ##
     ###########################
 
     ema_handler = ConversationHandler(
-        entry_points=[CommandHandler('ema', ema_start)],
+        entry_points=[MessageHandler(Filters.regex('[1-9]|10'), ema_happiness)],
 
         states={
-            HAPPINESS: [MessageHandler(Filters.regex('[1-9]|10'), ema_happiness)],
-
             ENERGY: [MessageHandler(Filters.regex('[1-9]|10'), ema_energy)]
         },
 
         fallbacks = []
     )
 
+    #EMA Conversation Handler
+    dispatcher.add_handler(ema_handler)
+
     ######################
     ## COMMAND HANDLERS ##
     ######################
 
-    #Start Handler - responds to the \start message using the start function. 
-    dispatcher.add_handler(CommandHandler('start', start))
+    #Start Handler which sets up the Job-Queue
+    dispatcher.add_handler(CommandHandler('start', start, pass_job_queue=True))
 
-    #Conversation Handler
-    dispatcher.add_handler(ema_handler)
-
-    #Ready Handler which sets up the JoQueue
-    dispatcher.add_handler(CommandHandler('ready', callback_daily, pass_job_queue=True))
-
-    ##Help Command Handler - 
+    #Help Command Handler 
     dispatcher.add_handler(CommandHandler('help', helpme))
 
     ######################
